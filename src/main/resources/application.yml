@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: organizador-eventos-backend-archetype
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:organizador_eventos}
+    username: ${DB_USER:organizador_eventos}
+    password: ${DB_PASSWORD:changeme_local_only}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate   # el esquema lo gobierna Flyway, no Hibernate
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
