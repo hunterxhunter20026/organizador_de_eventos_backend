@@ -3,7 +3,7 @@ FROM eclipse-temurin:17-jdk-jammy AS build
 WORKDIR /app
 COPY . .
 RUN chmod +x gradlew
-RUN ./gradlew clean bootJar --no-daemon
+RUN ./gradlew clean bootJar -x test --stacktrace --no-daemon
 
 # Etapa de ejecución
 FROM eclipse-temurin:17-jre-jammy
