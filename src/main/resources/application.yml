@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://postgres.eepshvqajtuvibpohsxu:15275696Moso@aws-0-us-east-1.pooler.supabase.co:6543/postgres?sslmode=require
+    url: jdbc:postgresql://postgres.eepshvqajtuvibpohsxu:15275696Moso@aws-0-us-east-1.pooler.supabase.co:6543/postgres?sslmode=require&connectTimeout=30&socketTimeout=30
     username: postgres.eepshvqajtuvibpohsxu
     password: 15275696Moso
     driver-class-name: org.postgresql.Driver
