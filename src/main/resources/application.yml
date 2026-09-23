@@ -1,15 +1,16 @@
+
 spring:
   datasource:
-    url: jdbc:postgresql://postgres.eepshvqajtuvibpohsxu:15275696Moso@aws-0-us-east-1.pooler.supabase.co:6543/postgres?sslmode=require&connectTimeout=30&socketTimeout=30
+    url: jdbc:postgresql://aws-0-us-east-1.pooler.supabase.co:6543/postgres?sslmode=require
     username: postgres.eepshvqajtuvibpohsxu
-    password: 15275696Moso
+    password: ${SUPABASE_DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   flyway:
     enabled: true
-    url: jdbc:postgresql://postgres.eepshvqajtuvibpohsxu:15275696Moso@aws-0-us-east-1.pooler.supabase.co:6543/postgres?sslmode=require
+    url: jdbc:postgresql://aws-0-us-east-1.pooler.supabase.co:6543/postgres?sslmode=require
     user: postgres.eepshvqajtuvibpohsxu
-    password: 15275696Moso
+    password: ${SUPABASE_DB_PASSWORD}
     locations: classpath:db/migration
     baseline-on-migrate: true
 
@@ -17,3 +18,5 @@ server:
   port: ${PORT:8085}
   servlet:
     context-path: /demo-ds-univalle
+
+    
