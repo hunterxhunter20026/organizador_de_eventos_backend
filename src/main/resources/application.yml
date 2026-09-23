@@ -6,9 +6,9 @@ spring:
     name: demo-ds-univalle
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL}
-    username: ${SPRING_DATASOURCE_USERNAME}
-    password: ${SPRING_DATASOURCE_PASSWORD}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:3050/matricula_db}
+    username: ${SPRING_DATASOURCE_USERNAME:matricula_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:matricula_pass}
     driver-class-name: org.postgresql.Driver
 
   jpa:
