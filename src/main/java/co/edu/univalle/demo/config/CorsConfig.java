@@ -18,7 +18,9 @@ public class CorsConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins("https://darkgreen-viper-398818.hostingersite.com")
+                        .allowedOrigins("https://darkgreen-viper-398818.hostingersite.com",
+                            "https://organizador-de-eventos-frontend.vercel.app/"
+                        )
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*");
             }
