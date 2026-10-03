@@ -18,11 +18,13 @@ public class CorsConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins(
-                                "https://prueba-frontend-tau.vercel.app/")
-                        .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+                        .allowedOrigins("https://darkgreen-viper-398818.hostingersite.com",
+                            "https://organizador-de-eventos-frontend.vercel.app/"
+                        )
+                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*");
             }
         };
     }
 }
+
