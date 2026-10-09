@@ -178,7 +178,8 @@ public class TareaLogisticaService {
      * @return la tarea con la fecha ya actualizada
      * @throws ConflictoSobrecargaException si el día destino supera el límite diario (US-07)
      */
-    @Transactional
+    // A rejected date must still commit its conflict entry to the history.
+    @Transactional(noRollbackFor = ConflictoSobrecargaException.class)
     public TareaLogisticaModel reprogramar(final Long id, final Long usuarioId, final LocalDate nuevoPlazo) {
         final TareaLogisticaModel tarea = obtenerPropiaOFallar(id, usuarioId);
         if (nuevoPlazo == null) {
