@@ -21,7 +21,7 @@ public class CorsConfig {
                         .allowedOrigins("https://darkgreen-viper-398818.hostingersite.com",
                             "https://organizador-de-eventos-frontend.vercel.app", "http://localhost:5173"
                         )
-                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                        .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                         .allowedHeaders("*");
             }
         };
