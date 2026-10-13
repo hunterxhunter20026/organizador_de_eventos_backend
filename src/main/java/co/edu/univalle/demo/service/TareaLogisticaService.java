@@ -121,6 +121,9 @@ public class TareaLogisticaService {
 
         existente.setTitulo(cambios.getTitulo());
         existente.setDescripcion(cambios.getDescripcion());
+        if (cambios.getIcono() != null) {
+            existente.setIcono(cambios.getIcono());
+        }
         existente.setFechaLimite(cambios.getFechaLimite());
         existente.setHorasEstimadas(cambios.getHorasEstimadas());
         return tareaLogisticaRepository.save(existente);
@@ -139,7 +142,7 @@ public class TareaLogisticaService {
     }
 
     /**
-     * Marca una tarea logística como ejecutada o pospuesta, con nota opcional (US-09).
+     * Cambia el estado de una tarea logística, con nota opcional (US-09).
      *
      * @param id         identificador de la tarea
      * @param usuarioId  identificador del usuario autenticado
@@ -155,15 +158,17 @@ public class TareaLogisticaService {
             final String nuevoEstado,
             final String nota) {
         final TareaLogisticaModel tarea = obtenerPropiaOFallar(id, usuarioId);
-        if (!TareaLogisticaModel.ESTADO_COMPLETADA.equals(nuevoEstado)
+        if (!TareaLogisticaModel.ESTADO_PENDIENTE.equals(nuevoEstado)
+                && !TareaLogisticaModel.ESTADO_COMPLETADA.equals(nuevoEstado)
                 && !TareaLogisticaModel.ESTADO_POSPUESTA.equals(nuevoEstado)) {
             throw new ValidacionException(
-                "El estado debe ser \"" + TareaLogisticaModel.ESTADO_COMPLETADA
+                "El estado debe ser \"" + TareaLogisticaModel.ESTADO_PENDIENTE
+                        + "\", \"" + TareaLogisticaModel.ESTADO_COMPLETADA
                         + "\" o \"" + TareaLogisticaModel.ESTADO_POSPUESTA + "\"");
         }
         tarea.setEstado(nuevoEstado);
-        tarea.setFechaEjecucion(LocalDate.now());
-        tarea.setNotaEjecucion(nota);
+        tarea.setFechaEjecucion(TareaLogisticaModel.ESTADO_PENDIENTE.equals(nuevoEstado) ? null : LocalDate.now());
+        tarea.setNotaEjecucion(TareaLogisticaModel.ESTADO_PENDIENTE.equals(nuevoEstado) ? null : nota);
         return tareaLogisticaRepository.save(tarea);
     }
 
@@ -181,20 +186,44 @@ public class TareaLogisticaService {
     // A rejected date must still commit its conflict entry to the history.
     @Transactional(noRollbackFor = ConflictoSobrecargaException.class)
     public TareaLogisticaModel reprogramar(final Long id, final Long usuarioId, final LocalDate nuevoPlazo) {
+        return reprogramar(id, usuarioId, nuevoPlazo, null);
+    }
+
+    /**
+     * Reprograma una tarea y actualiza opcionalmente las horas estimadas.
+     *
+     * @param id identificador de la tarea
+     * @param usuarioId identificador del usuario autenticado
+     * @param nuevoPlazo nueva fecha objetivo propuesta
+     * @param horasPropuestas nuevas horas estimadas; nulo conserva el valor actual
+     * @return la tarea con la fecha y horas ya actualizadas
+     * @throws ConflictoSobrecargaException si el día destino supera el límite diario (US-07)
+     */
+    @Transactional(noRollbackFor = ConflictoSobrecargaException.class)
+    public TareaLogisticaModel reprogramar(
+            final Long id,
+            final Long usuarioId,
+            final LocalDate nuevoPlazo,
+            final BigDecimal horasPropuestas) {
         final TareaLogisticaModel tarea = obtenerPropiaOFallar(id, usuarioId);
         if (nuevoPlazo == null) {
             throw new ValidacionException("La nueva fecha es obligatoria");
         }
+        final BigDecimal horasNuevas = horasPropuestas == null ? tarea.getHorasEstimadas() : horasPropuestas;
+        if (horasNuevas == null || horasNuevas.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ValidacionException("Las horas estimadas deben ser mayores a 0");
+        }
         final LocalDate fechaAnterior = tarea.getFechaLimite();
 
         try {
-            verificarSobrecarga(usuarioId, nuevoPlazo, tarea.getHorasEstimadas(), id);
+            verificarSobrecarga(usuarioId, nuevoPlazo, horasNuevas, id);
         } catch (final ConflictoSobrecargaException conflicto) {
             registrarHistorial(id, fechaAnterior, nuevoPlazo, true, conflicto.getMessage());
             throw conflicto;
         }
 
         tarea.setFechaLimite(nuevoPlazo);
+        tarea.setHorasEstimadas(horasNuevas);
         final TareaLogisticaModel guardada = tareaLogisticaRepository.save(tarea);
         registrarHistorial(id, fechaAnterior, nuevoPlazo, false, null);
         return guardada;
@@ -208,8 +237,7 @@ public class TareaLogisticaService {
      *
      * @param usuarioId      identificador del usuario autenticado
      * @param eventoIdFiltro identificador de evento para acotar la vista (opcional, nulo = todos)
-     * @param estadoFiltro   estado de gestión a mostrar (opcional; por defecto solo "Pendiente",
-     *                       ya que Vencidas/Hoy/Próximas solo tienen sentido para gestiones no resueltas)
+     * @param estadoFiltro   estado de gestión a mostrar (opcional; "Activas" incluye Pendiente y Pospuesta)
      * @return la vista Hoy con la regla de orden documentada y las tres listas agrupadas
      */
     @Transactional(readOnly = true)
@@ -221,8 +249,12 @@ public class TareaLogisticaService {
                 ? TareaLogisticaModel.ESTADO_PENDIENTE
                 : estadoFiltro;
 
+        final boolean incluirPospuestas = "Activas".equalsIgnoreCase(estadoEfectivo);
         final List<TareaLogisticaModel> filtradas = tareaLogisticaRepository.findByUsuarioId(usuarioId).stream()
-                .filter(t -> estadoEfectivo.equalsIgnoreCase(t.getEstado()))
+                .filter(t -> incluirPospuestas
+                        ? TareaLogisticaModel.ESTADO_PENDIENTE.equalsIgnoreCase(t.getEstado())
+                                || TareaLogisticaModel.ESTADO_POSPUESTA.equalsIgnoreCase(t.getEstado())
+                        : estadoEfectivo.equalsIgnoreCase(t.getEstado()))
                 .filter(t -> eventoIdFiltro == null || eventoIdFiltro.equals(t.getEventoId()))
                 .toList();
 
