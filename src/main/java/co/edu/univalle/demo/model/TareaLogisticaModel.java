@@ -57,6 +57,10 @@ public class TareaLogisticaModel {
     @Column(name = "descripcion", columnDefinition = "TEXT")
     private String descripcion;
 
+    /** Emoji elegido para identificar visualmente la gestión. */
+    @Column(name = "icono", length = 32)
+    private String icono;
+
     /** Fecha objetivo/plazo en la que debe realizarse la gestión. */
     @Column(name = "fecha_limite", nullable = false)
     private LocalDate fechaLimite;

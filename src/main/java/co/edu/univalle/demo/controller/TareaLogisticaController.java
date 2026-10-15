@@ -115,11 +115,11 @@ public class TareaLogisticaController {
     }
 
     /**
-     * Reprograma la fecha de una tarea logística, detectando conflicto de sobrecarga
-     * diaria en el día destino (US-06, US-07, US-08).
+     * Reprograma la fecha y las horas estimadas de una tarea logística, detectando
+     * conflicto de sobrecarga diaria en el día destino (US-06, US-07, US-08).
      *
      * @param id      identificador de la tarea
-     * @param cuerpo  nueva fecha objetivo propuesta
+     * @param cuerpo  nueva fecha objetivo y horas estimadas propuestas
      * @param request petición HTTP (para obtener el usuario autenticado)
      * @return la tarea con la fecha ya actualizada (o HTTP 409 si hay conflicto de sobrecarga)
      */
@@ -129,7 +129,7 @@ public class TareaLogisticaController {
             @RequestBody final ReprogramarRequestDTO cuerpo,
             final HttpServletRequest request) {
         return tareaLogisticaService.reprogramar(
-                id, AuthContext.usuarioActual(request), cuerpo.getNuevoPlazo());
+                id, AuthContext.usuarioActual(request), cuerpo.getNuevoPlazo(), cuerpo.getHorasEstimadas());
     }
 
 }
