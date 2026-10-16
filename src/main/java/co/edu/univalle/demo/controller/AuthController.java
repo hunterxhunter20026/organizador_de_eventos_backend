@@ -7,6 +7,9 @@ import co.edu.univalle.demo.exception.ValidacionException;
 import co.edu.univalle.demo.model.UsuarioModel;
 import co.edu.univalle.demo.security.TokenService;
 import co.edu.univalle.demo.service.UsuarioService;
+import co.edu.univalle.demo.security.AuthContext;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.web.bind.annotation.GetMapping;
 import java.util.Optional;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -64,4 +67,14 @@ public class AuthController {
         return new LoginResponseDTO(token, resumen);
     }
 
+    /*
+     * Confirma que el token sigue siendo valido
+     */
+    @GetMapping("/sesion")
+    public UsuarioResumenDTO sesion(final HttpServletRequest request){
+        final UsuarioModel encontrado = usuarioService.obtenerPorId(AuthContext.usuarioActual(request));
+        return new UsuarioResumenDTO(
+            encontrado.getId(), encontrado.getNombre(), encontrado.getEmail()
+        );
+    }
 }
