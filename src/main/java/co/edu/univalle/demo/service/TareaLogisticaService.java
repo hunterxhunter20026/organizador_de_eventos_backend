@@ -309,7 +309,7 @@ public class TareaLogisticaService {
         final BigDecimal total = horasExistentes.add(horasNuevas);
 
         if (total.compareTo(limite) > 0) {
-            final String mensaje = "Quedarías con " + total + "h de gestión planificadas (límite " + limite + "h)";
+            final String mensaje = "No es posible asignar " + total + "h de gestión planificadas (límite maximo de horas: " + limite + "h)";
             throw new ConflictoSobrecargaException(mensaje, total, limite, OPCIONES_RESOLUCION);
         }
     }
