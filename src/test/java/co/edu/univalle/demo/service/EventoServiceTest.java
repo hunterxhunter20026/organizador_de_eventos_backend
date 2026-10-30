@@ -1,9 +1,13 @@
 package co.edu.univalle.demo.service;
 
+import co.edu.univalle.demo.exception.BusinessException;
 import co.edu.univalle.demo.exception.ResourceNotFoundException;
-import co.edu.univalle.demo.model.EventoModel;
-import co.edu.univalle.demo.repository.EventoRepository;
-import java.time.LocalDate;
+import co.edu.univalle.demo.exception.ValidacionException;
+import co.edu.univalle.demo.model.TareaLogisticaModel;
+import co.edu.univalle.demo.model.UsuarioModel;
+import co.edu.univalle.demo.repository.TareaLogisticaRepository;
+import co.edu.univalle.demo.repository.UsuarioRepository;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,182 +19,259 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(SpringExtension.class)
-class EventoServiceTest {
+class UsuarioServiceTest {
 
     @Mock
-    private EventoRepository eventoRepository;
+    private UsuarioRepository usuarioRepository;
 
-    private EventoService eventoService;
+    @Mock
+    private TareaLogisticaRepository tareaLogisticaRepository;
+
+    private UsuarioService usuarioService;
 
     @BeforeEach
     void setUp() {
-        eventoService = new EventoService(eventoRepository);
+        usuarioService = new UsuarioService(usuarioRepository, tareaLogisticaRepository);
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────
-    private EventoModel buildEvento() {
-        return EventoModel.builder()
+    private UsuarioModel buildUsuario() {
+        return UsuarioModel.builder()
                 .id(1L)
-                .usuarioId(10L)
-                .nombre("Conferencia de Sistemas")
-                .descripcion("Evento académico de ingeniería de sistemas")
-                .fechaEvento(LocalDate.of(2026, 10, 15))
-                .estado("Planificación")
+                .nombre("Ana María")
+                .email("ana.gomez@univalle.edu.co")
+                .passwordHash("hashedpassword123")
+                .limiteHorasDiarias(new BigDecimal("8.00"))
                 .build();
     }
 
     // ── Crear ─────────────────────────────────────────────────────────────────
     @Test
-    @DisplayName("Crear evento exitosamente")
-    void whenCreateEvento_thenReturnSavedEvento() {
-        var evento = buildEvento();
+    @DisplayName("Crear usuario exitosamente cuando el email es único")
+    void whenCreateUsuario_withUniqueEmail_thenReturnSavedUsuario() {
+        var usuario = buildUsuario();
 
-        given(eventoRepository.save(evento)).willReturn(evento);
+        given(usuarioRepository.findByEmail(usuario.getEmail()))
+                .willReturn(Optional.empty());
+        given(usuarioRepository.save(usuario)).willReturn(usuario);
 
-        EventoModel result = eventoService.crear(evento);
+        UsuarioModel result = usuarioService.crear(usuario);
 
-        verify(eventoRepository).save(evento);
-        assertEquals(evento, result);
+        verify(usuarioRepository).save(usuario);
+        assertEquals(usuario, result);
+    }
+
+    @Test
+    @DisplayName("Lanzar BusinessException al crear usuario con email duplicado")
+    void whenCreateUsuario_withDuplicateEmail_thenThrowBusinessException() {
+        var usuario = buildUsuario();
+
+        given(usuarioRepository.findByEmail(usuario.getEmail()))
+                .willReturn(Optional.of(usuario));
+
+        assertThrows(BusinessException.class,
+                () -> usuarioService.crear(usuario));
+
+        verify(usuarioRepository, never()).save(usuario);
     }
 
     // ── Actualizar ────────────────────────────────────────────────────────────
     @Test
-    @DisplayName("Actualizar evento exitosamente cuando existe")
-    void whenUpdateEvento_withExistingId_thenReturnUpdatedEvento() {
-        var evento = buildEvento();
+    @DisplayName("Actualizar usuario exitosamente cuando existe")
+    void whenUpdateUsuario_withExistingId_thenReturnUpdatedUsuario() {
+        var usuario = buildUsuario();
 
-        given(eventoRepository.findById(evento.getId()))
-                .willReturn(Optional.of(evento));
-        given(eventoRepository.save(evento)).willReturn(evento);
+        given(usuarioRepository.findById(usuario.getId()))
+                .willReturn(Optional.of(usuario));
+        given(usuarioRepository.save(usuario)).willReturn(usuario);
 
-        EventoModel result = eventoService.actualizar(evento);
+        UsuarioModel result = usuarioService.actualizar(usuario);
 
-        verify(eventoRepository).save(evento);
-        assertEquals(evento, result);
+        verify(usuarioRepository).save(usuario);
+        assertEquals(usuario, result);
     }
 
     @Test
-    @DisplayName("Lanzar ResourceNotFoundException al actualizar evento inexistente")
-    void whenUpdateEvento_withNonExistingId_thenThrowResourceNotFoundException() {
-        var evento = buildEvento();
+    @DisplayName("Lanzar ResourceNotFoundException al actualizar usuario inexistente")
+    void whenUpdateUsuario_withNonExistingId_thenThrowResourceNotFoundException() {
+        var usuario = buildUsuario();
 
-        given(eventoRepository.findById(evento.getId()))
+        given(usuarioRepository.findById(usuario.getId()))
                 .willReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class,
-                () -> eventoService.actualizar(evento));
+                () -> usuarioService.actualizar(usuario));
 
-        verify(eventoRepository, never()).save(evento);
+        verify(usuarioRepository, never()).save(usuario);
     }
 
     // ── Eliminar ──────────────────────────────────────────────────────────────
     @Test
-    @DisplayName("Eliminar evento exitosamente cuando existe")
-    void whenDeleteEvento_withExistingId_thenDeleteFromRepository() {
-        var evento = buildEvento();
+    @DisplayName("Eliminar usuario exitosamente cuando existe")
+    void whenDeleteUsuario_withExistingId_thenDeleteFromRepository() {
+        var usuario = buildUsuario();
 
-        given(eventoRepository.findById(evento.getId()))
-                .willReturn(Optional.of(evento));
+        given(usuarioRepository.findById(usuario.getId()))
+                .willReturn(Optional.of(usuario));
 
-        eventoService.eliminar(evento.getId());
+        usuarioService.eliminar(usuario.getId());
 
-        verify(eventoRepository).deleteById(evento.getId());
+        verify(usuarioRepository).deleteById(usuario.getId());
     }
 
     @Test
-    @DisplayName("Lanzar ResourceNotFoundException al eliminar evento inexistente")
-    void whenDeleteEvento_withNonExistingId_thenThrowResourceNotFoundException() {
-        given(eventoRepository.findById(99L))
+    @DisplayName("Lanzar ResourceNotFoundException al eliminar usuario inexistente")
+    void whenDeleteUsuario_withNonExistingId_thenThrowResourceNotFoundException() {
+        given(usuarioRepository.findById(99L))
                 .willReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class,
-                () -> eventoService.eliminar(99L));
+                () -> usuarioService.eliminar(99L));
 
-        verify(eventoRepository, never()).deleteById(99L);
+        verify(usuarioRepository, never()).deleteById(99L);
     }
 
     // ── Obtener todos ─────────────────────────────────────────────────────────
     @Test
-    @DisplayName("Retornar lista de todos los eventos")
-    void whenGetAllEventos_thenReturnList() {
-        var eventos = List.of(buildEvento());
+    @DisplayName("Retornar lista de todos los usuarios")
+    void whenGetAllUsuarios_thenReturnList() {
+        var usuarios = List.of(buildUsuario());
 
-        given(eventoRepository.findAll()).willReturn(eventos);
+        given(usuarioRepository.findAll()).willReturn(usuarios);
 
-        List<EventoModel> result = eventoService.obtenerTodos();
+        List<UsuarioModel> result = usuarioService.obtenerTodos();
 
-        verify(eventoRepository).findAll();
-        assertEquals(eventos, result);
+        verify(usuarioRepository).findAll();
+        assertEquals(usuarios, result);
     }
 
     // ── Obtener por id ────────────────────────────────────────────────────────
     @Test
-    @DisplayName("Retornar evento por id cuando existe")
-    void whenGetEventoById_withExistingId_thenReturnEvento() {
-        var evento = buildEvento();
+    @DisplayName("Retornar usuario por id cuando existe")
+    void whenGetUsuarioById_withExistingId_thenReturnUsuario() {
+        var usuario = buildUsuario();
 
-        given(eventoRepository.findById(evento.getId()))
-                .willReturn(Optional.of(evento));
+        given(usuarioRepository.findById(usuario.getId()))
+                .willReturn(Optional.of(usuario));
 
-        EventoModel result = eventoService.obtenerPorId(evento.getId());
+        UsuarioModel result = usuarioService.obtenerPorId(usuario.getId());
 
-        assertEquals(evento, result);
+        assertEquals(usuario, result);
     }
 
     @Test
     @DisplayName("Lanzar ResourceNotFoundException al buscar id inexistente")
-    void whenGetEventoById_withNonExistingId_thenThrowResourceNotFoundException() {
-        given(eventoRepository.findById(99L))
+    void whenGetUsuarioById_withNonExistingId_thenThrowResourceNotFoundException() {
+        given(usuarioRepository.findById(99L))
                 .willReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class,
-                () -> eventoService.obtenerPorId(99L));
+                () -> usuarioService.obtenerPorId(99L));
     }
 
     // ── Buscar por nombre ─────────────────────────────────────────────────────
     @Test
-    @DisplayName("Retornar eventos que coinciden con el nombre buscado")
-    void whenSearchByNombre_thenReturnMatchingEventos() {
-        var eventos = List.of(buildEvento());
+    @DisplayName("Retornar usuarios que coinciden con el nombre buscado")
+    void whenSearchByNombre_thenReturnMatchingUsuarios() {
+        var usuarios = List.of(buildUsuario());
 
-        given(eventoRepository.findAllByNombreContainingIgnoreCase("Conferencia"))
-                .willReturn(eventos);
+        given(usuarioRepository.findAllByNombreContainingIgnoreCase("Ana"))
+                .willReturn(usuarios);
 
-        List<EventoModel> result = eventoService.buscarPorNombre("Conferencia");
+        List<UsuarioModel> result = usuarioService.buscarPorNombre("Ana");
 
-        assertEquals(eventos, result);
+        assertEquals(usuarios, result);
     }
 
-    // ── Buscar por usuarioId ──────────────────────────────────────────────────
+    // ── Buscar por email ──────────────────────────────────────────────────────
     @Test
-    @DisplayName("Retornar eventos asociados a un usuario específico")
-    void whenSearchByUsuarioId_thenReturnEventos() {
-        var eventos = List.of(buildEvento());
+    @DisplayName("Retornar usuario cuando el email existe")
+    void whenSearchByEmail_withExistingEmail_thenReturnUsuario() {
+        var usuario = buildUsuario();
 
-        given(eventoRepository.findByUsuarioId(10L))
-                .willReturn(eventos);
+        given(usuarioRepository.findByEmail(usuario.getEmail()))
+                .willReturn(Optional.of(usuario));
 
-        List<EventoModel> result = eventoService.buscarPorUsuarioId(10L);
+        Optional<UsuarioModel> result = usuarioService.buscarPorEmail(usuario.getEmail());
 
-        assertEquals(eventos, result);
+        assertTrue(result.isPresent());
+        assertEquals(usuario, result.get());
     }
 
-    // ── Buscar por estado ─────────────────────────────────────────────────────
     @Test
-    @DisplayName("Retornar eventos filtrados por estado")
-    void whenSearchByEstado_thenReturnEventos() {
-        var eventos = List.of(buildEvento());
+    @DisplayName("Retornar Optional vacío cuando el email no existe")
+    void whenSearchByEmail_withNonExistingEmail_thenReturnEmpty() {
+        given(usuarioRepository.findByEmail("noexiste@univalle.edu.co"))
+                .willReturn(Optional.empty());
 
-        given(eventoRepository.findByEstado("Planificación"))
-                .willReturn(eventos);
+        Optional<UsuarioModel> result = usuarioService.buscarPorEmail("noexiste@univalle.edu.co");
 
-        List<EventoModel> result = eventoService.buscarPorEstado("Planificación");
+        assertTrue(result.isEmpty());
+    }
 
-        assertEquals(eventos, result);
+    // ── Límite diario vs. gestiones existentes (US-12) ────────────────────────
+    private TareaLogisticaModel buildTarea(final String titulo, final String horas, final String estado) {
+        return TareaLogisticaModel.builder()
+                .id(7L)
+                .usuarioId(1L)
+                .titulo(titulo)
+                .horasEstimadas(new BigDecimal(horas))
+                .estado(estado)
+                .build();
+    }
+
+    @Test
+    @DisplayName("Rechazar un límite diario menor a las horas de una gestión pendiente")
+    void whenUpdateLimite_belowPendingTaskHours_thenThrowValidacionException() {
+        var usuario = buildUsuario();
+        given(usuarioRepository.findById(1L)).willReturn(Optional.of(usuario));
+        given(tareaLogisticaRepository.findByUsuarioId(1L))
+                .willReturn(List.of(buildTarea("Decoraciones", "5.00", TareaLogisticaModel.ESTADO_PENDIENTE)));
+
+        var ex = assertThrows(ValidacionException.class,
+                () -> usuarioService.actualizarLimiteDiario(1L, new BigDecimal("4")));
+
+        assertTrue(ex.getMessage().contains("Decoraciones"));
+        assertTrue(ex.getMessage().contains("5 h"));
+        verify(usuarioRepository, never()).save(usuario);
+        assertEquals(new BigDecimal("8.00"), usuario.getLimiteHorasDiarias());
+    }
+
+    @Test
+    @DisplayName("Permitir un límite diario igual a las horas de la gestión pendiente más larga")
+    void whenUpdateLimite_equalToLongestPendingTask_thenSave() {
+        var usuario = buildUsuario();
+        given(usuarioRepository.findById(1L)).willReturn(Optional.of(usuario));
+        given(tareaLogisticaRepository.findByUsuarioId(1L))
+                .willReturn(List.of(
+                        buildTarea("Decoraciones", "5.00", TareaLogisticaModel.ESTADO_PENDIENTE),
+                        buildTarea("Invitaciones", "1", TareaLogisticaModel.ESTADO_PENDIENTE)));
+
+        BigDecimal result = usuarioService.actualizarLimiteDiario(1L, new BigDecimal("5"));
+
+        assertEquals(new BigDecimal("5"), result);
+        verify(usuarioRepository).save(usuario);
+    }
+
+    @Test
+    @DisplayName("Las gestiones completadas o pospuestas no impiden bajar el límite diario")
+    void whenUpdateLimite_belowNonPendingTasks_thenSave() {
+        var usuario = buildUsuario();
+        given(usuarioRepository.findById(1L)).willReturn(Optional.of(usuario));
+        given(tareaLogisticaRepository.findByUsuarioId(1L))
+                .willReturn(List.of(
+                        buildTarea("Reservar salón", "5", "Completada"),
+                        buildTarea("Catering", "6", "Pospuesta")));
+
+        BigDecimal result = usuarioService.actualizarLimiteDiario(1L, new BigDecimal("4"));
+
+        assertEquals(new BigDecimal("4"), result);
+        verify(usuarioRepository).save(usuario);
     }
 }

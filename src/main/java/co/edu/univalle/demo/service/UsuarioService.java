@@ -3,9 +3,12 @@ package co.edu.univalle.demo.service;
 import co.edu.univalle.demo.exception.BusinessException;
 import co.edu.univalle.demo.exception.ResourceNotFoundException;
 import co.edu.univalle.demo.exception.ValidacionException;
+import co.edu.univalle.demo.model.TareaLogisticaModel;
 import co.edu.univalle.demo.model.UsuarioModel;
+import co.edu.univalle.demo.repository.TareaLogisticaRepository;
 import co.edu.univalle.demo.repository.UsuarioRepository;
 import java.math.BigDecimal;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -31,16 +34,23 @@ public class UsuarioService {
     /** Repositorio de acceso a datos de usuarios. */
     private final UsuarioRepository usuarioRepository;
 
+    /** Repositorio de tareas, usado para que el límite diario nunca quede por debajo de una gestión (US-12). */
+    private final TareaLogisticaRepository tareaLogisticaRepository;
+
     /** Codificador de contraseñas usado para nunca guardar texto plano. */
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     /**
      * Constructor con inyección de dependencias.
      *
-     * @param usuarioRepository repositorio de usuarios
+     * @param usuarioRepository        repositorio de usuarios
+     * @param tareaLogisticaRepository repositorio de tareas logísticas
      */
-    public UsuarioService(final UsuarioRepository usuarioRepository) {
+    public UsuarioService(
+            final UsuarioRepository usuarioRepository,
+            final TareaLogisticaRepository tareaLogisticaRepository) {
         this.usuarioRepository = usuarioRepository;
+        this.tareaLogisticaRepository = tareaLogisticaRepository;
     }
 
     /**
@@ -91,7 +101,11 @@ public class UsuarioService {
         } else {
             usuario.setPasswordHash(existente.getPasswordHash());
         }
+        final boolean enviaLimite = usuario.getLimiteHorasDiarias() != null;
         usuario.setLimiteHorasDiarias(validarOAplicarLimitePorDefecto(usuario.getLimiteHorasDiarias()));
+        if (enviaLimite) {
+            validarLimiteContraGestiones(usuario.getId(), usuario.getLimiteHorasDiarias());
+        }
         return usuarioRepository.save(usuario);
     }
 
@@ -204,14 +218,42 @@ public class UsuarioService {
      * @param usuarioId identificador del usuario
      * @param nuevoLimite nuevo límite diario en horas
      * @return el límite ya guardado
-     * @throws ValidacionException si el valor está fuera del rango 1-16
+     * @throws ValidacionException si el valor está fuera del rango 1-16 o si queda por debajo
+     *                             de las horas estimadas de alguna gestión pendiente
      */
     @Transactional
     public BigDecimal actualizarLimiteDiario(final Long usuarioId, final BigDecimal nuevoLimite) {
         final UsuarioModel usuario = obtenerPorId(usuarioId);
-        usuario.setLimiteHorasDiarias(validarOAplicarLimitePorDefecto(nuevoLimite));
+        final BigDecimal limiteValidado = validarOAplicarLimitePorDefecto(nuevoLimite);
+        validarLimiteContraGestiones(usuarioId, limiteValidado);
+        usuario.setLimiteHorasDiarias(limiteValidado);
         usuarioRepository.save(usuario);
         return usuario.getLimiteHorasDiarias();
+    }
+
+    /**
+     * Garantiza que el límite diario no quede por debajo de las horas estimadas de una
+     * gestión ya creada: una gestión se realiza dentro de un día, así que ese día no puede
+     * ofrecer menos horas de las que la gestión necesita (US-12). Solo cuentan las gestiones
+     * Pendientes, igual que en la detección de sobrecarga: las Completadas y Pospuestas ya
+     * no ocupan horas del día.
+     *
+     * @param usuarioId identificador del usuario dueño de las gestiones
+     * @param limite    límite diario propuesto, ya validado en el rango 1-16
+     * @throws ValidacionException si alguna gestión pendiente tiene más horas que el límite
+     */
+    private void validarLimiteContraGestiones(final Long usuarioId, final BigDecimal limite) {
+        tareaLogisticaRepository.findByUsuarioId(usuarioId).stream()
+                .filter(t -> TareaLogisticaModel.ESTADO_PENDIENTE.equals(t.getEstado()))
+                .filter(t -> t.getHorasEstimadas() != null && t.getHorasEstimadas().compareTo(limite) > 0)
+                .max(Comparator.comparing(TareaLogisticaModel::getHorasEstimadas))
+                .ifPresent(t -> {
+                    final String necesarias = t.getHorasEstimadas().stripTrailingZeros().toPlainString();
+                    throw new ValidacionException(
+                        "No puedes bajar el límite diario a " + limite.stripTrailingZeros().toPlainString()
+                            + " h: la gestión \"" + t.getTitulo() + "\" tiene " + necesarias
+                            + " h estimadas. Reduce sus horas o elige un límite de al menos " + necesarias + " h");
+                });
     }
 
     /**
